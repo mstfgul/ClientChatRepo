@@ -1,0 +1,38 @@
+# Local development
+backend/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Local scripts and docs
+scripts/requirements.txt
+setup.sh
+run.sh
+QUICKSTART.md
+
+# Git
+.git/
+.gitignore
+
+# Environment
+.env
+.env.local
+
+# Data (PDF original - sadece knowledge_base.json deploy edilecek)
+data/*.pdf
+!data/knowledge_base.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ChromaDB (kullanılmıyor artık)
+chroma_db/
