@@ -7,12 +7,6 @@ import json
 import os
 import numpy as np
 from openai import OpenAI
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs
-import sys
-
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -28,15 +22,19 @@ def load_knowledge_base():
     if KNOWLEDGE_BASE is not None:
         return KNOWLEDGE_BASE
 
-    # Knowledge base path
+    # Knowledge base path - Vercel'de dosya sistemi
     kb_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
 
     try:
         with open(kb_path, 'r', encoding='utf-8') as f:
             KNOWLEDGE_BASE = json.load(f)
+        print(f"✓ Knowledge base loaded: {len(KNOWLEDGE_BASE.get('chunks', []))} chunks")
         return KNOWLEDGE_BASE
     except Exception as e:
         print(f"Error loading knowledge base: {e}")
+        print(f"Tried path: {kb_path}")
+        print(f"Current dir: {os.getcwd()}")
+        print(f"Files: {os.listdir(os.path.dirname(__file__))}")
         return None
 
 
@@ -144,34 +142,39 @@ Lütfen yukarıdaki kullanıcı klavuzu bilgilerine dayanarak soruyu cevapla."""
 
         return {
             "answer": answer,
-            "sources": sources[:2]  # İlk 2 kaynağı göster
+            "sources": sources[:2]
         }
 
     except Exception as e:
+        print(f"Error in generate_answer: {e}")
         return {
             "answer": f"Bir hata oluştu: {str(e)}",
             "sources": []
         }
 
 
-class handler(BaseHTTPRequestHandler):
-    """Vercel Serverless Function Handler"""
+# Vercel handler function
+def handler(request):
+    """Vercel serverless function handler"""
 
-    def _set_headers(self, status=200, content_type='application/json'):
-        self.send_response(status)
-        self.send_header('Content-Type', content_type)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
+    # CORS headers
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json'
+    }
 
-    def do_OPTIONS(self):
-        """Handle CORS preflight"""
-        self._set_headers()
+    # Handle OPTIONS (CORS preflight)
+    if request.method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': ''
+        }
 
-    def do_GET(self):
-        """Health check"""
-        self._set_headers()
+    # Handle GET (health check)
+    if request.method == 'GET':
         kb = load_knowledge_base()
 
         response = {
@@ -181,32 +184,50 @@ class handler(BaseHTTPRequestHandler):
             "chunks_count": len(kb['chunks']) if kb else 0
         }
 
-        self.wfile.write(json.dumps(response).encode())
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps(response)
+        }
 
-    def do_POST(self):
-        """Handle chat requests"""
+    # Handle POST (chat)
+    if request.method == 'POST':
         try:
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
+            # Parse body
+            body = request.body
+            if isinstance(body, bytes):
+                body = body.decode('utf-8')
 
+            data = json.loads(body) if isinstance(body, str) else body
             question = data.get('question', '').strip()
 
             if not question:
-                self._set_headers(400)
-                self.wfile.write(json.dumps({
-                    "error": "Question is required"
-                }).encode())
-                return
+                return {
+                    'statusCode': 400,
+                    'headers': headers,
+                    'body': json.dumps({"error": "Question is required"})
+                }
 
             # Generate answer
             result = generate_answer(question)
 
-            self._set_headers()
-            self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps(result, ensure_ascii=False)
+            }
 
         except Exception as e:
-            self._set_headers(500)
-            self.wfile.write(json.dumps({
-                "error": str(e)
-            }).encode())
+            print(f"Error handling POST: {e}")
+            return {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({"error": str(e)})
+            }
+
+    # Method not allowed
+    return {
+        'statusCode': 405,
+        'headers': headers,
+        'body': json.dumps({"error": "Method not allowed"})
+    }
