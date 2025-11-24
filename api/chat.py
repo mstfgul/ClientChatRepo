@@ -10,11 +10,21 @@ from openai import OpenAI
 from http.server import BaseHTTPRequestHandler
 
 # Initialize OpenAI client
-try:
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-except Exception as e:
-    print(f"OpenAI initialization error: {e}")
+api_key = os.getenv("OPENAI_API_KEY")
+print(f"API Key present: {api_key is not None}, Length: {len(api_key) if api_key else 0}")
+
+if not api_key:
+    print("❌ OPENAI_API_KEY environment variable not set!")
     client = None
+else:
+    try:
+        client = OpenAI(api_key=api_key)
+        print("✓ OpenAI client initialized successfully")
+    except Exception as e:
+        print(f"❌ OpenAI initialization error: {e}")
+        import traceback
+        traceback.print_exc()
+        client = None
 
 # Global variable for knowledge base (loaded once)
 KNOWLEDGE_BASE = None
