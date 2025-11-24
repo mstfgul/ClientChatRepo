@@ -1,4 +1,4 @@
 # Vercel Production Dependencies
-openai==1.54.4
-numpy==1.26.4
-python-dotenv==1.0.1
+openai>=1.54.0
+numpy>=1.26.0
+python-dotenv>=1.0.0
