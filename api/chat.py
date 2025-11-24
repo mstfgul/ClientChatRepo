@@ -86,7 +86,8 @@ def search_similar_chunks(query_embedding, top_k=3):
 def generate_answer(question: str):
     """Soruya cevap üret"""
     if not client:
-        return {"answer": "OpenAI client başlatılamadı", "sources": []}
+        api_key_status = "API key yok" if not os.getenv("OPENAI_API_KEY") else f"API key var (uzunluk: {len(os.getenv('OPENAI_API_KEY'))})"
+        return {"answer": f"OpenAI client başlatılamadı. Debug: {api_key_status}", "sources": []}
 
     try:
         query_response = client.embeddings.create(
