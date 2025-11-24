@@ -9,25 +9,30 @@ import numpy as np
 from openai import OpenAI
 from http.server import BaseHTTPRequestHandler
 
-# Initialize OpenAI client
-api_key = os.getenv("OPENAI_API_KEY")
-print(f"API Key present: {api_key is not None}, Length: {len(api_key) if api_key else 0}")
+# Global variables
+KNOWLEDGE_BASE = None
+_client = None
 
-if not api_key:
-    print("❌ OPENAI_API_KEY environment variable not set!")
-    client = None
-else:
+
+def get_openai_client():
+    """Lazy initialize OpenAI client"""
+    global _client
+
+    if _client is not None:
+        return _client
+
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        raise Exception("OPENAI_API_KEY environment variable not set")
+
     try:
-        client = OpenAI(api_key=api_key)
-        print("✓ OpenAI client initialized successfully")
+        _client = OpenAI(api_key=api_key)
+        print(f"✓ OpenAI client initialized (key length: {len(api_key)})")
+        return _client
     except Exception as e:
         print(f"❌ OpenAI initialization error: {e}")
-        import traceback
-        traceback.print_exc()
-        client = None
-
-# Global variable for knowledge base (loaded once)
-KNOWLEDGE_BASE = None
+        raise
 
 
 def load_knowledge_base():
@@ -85,11 +90,9 @@ def search_similar_chunks(query_embedding, top_k=3):
 
 def generate_answer(question: str):
     """Soruya cevap üret"""
-    if not client:
-        api_key_status = "API key yok" if not os.getenv("OPENAI_API_KEY") else f"API key var (uzunluk: {len(os.getenv('OPENAI_API_KEY'))})"
-        return {"answer": f"OpenAI client başlatılamadı. Debug: {api_key_status}", "sources": []}
-
     try:
+        client = get_openai_client()
+
         query_response = client.embeddings.create(
             model="text-embedding-3-small",
             input=question
